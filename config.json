@@ -1,0 +1,19 @@
+{
+    "presets": {
+        "zurich": {
+            "text": "In Zurich",
+            "emoji": ":flag-ch:",
+            "duration": ""
+        },
+        "vermont": {
+            "text": "In Vermont",
+            "emoji": ":evergreen_tree:",
+            "duration": ""
+        },
+        "boston": {
+            "text": "In Boston",
+            "emoji": ":crab:",
+            "duration": ""
+        }
+    }
+}
