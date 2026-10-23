@@ -11,6 +11,7 @@ import getpass
 import json
 import os
 import re
+import ssl
 import sys
 import tempfile
 import time
@@ -24,6 +25,7 @@ from typing import Callable, Optional, Tuple
 CONFIG_PATH = Path.home() / ".config" / "slackstatus" / "config.json"
 API_BASE = "https://slack.com/api/"
 HTTP_TIMEOUT = 15  # seconds
+FALLBACK_CA_FILES = ("/etc/ssl/cert.pem",)  # macOS system bundle
 
 DEFAULT_CONFIG = {
     "workspaces": [],
@@ -156,6 +158,23 @@ def _retry_after(headers) -> int:
         return 1
 
 
+def ssl_context() -> ssl.SSLContext:
+    """Default verifying context, falling back to the OS CA bundle.
+
+    The python.org macOS installer ships without CA certificates until
+    "Install Certificates.command" is run, so every HTTPS call fails with
+    CERTIFICATE_VERIFY_FAILED. Verification stays on either way.
+    """
+    ctx = ssl.create_default_context()
+    paths = ssl.get_default_verify_paths()
+    if not paths.cafile and not paths.capath:
+        for ca_file in FALLBACK_CA_FILES:
+            if os.path.exists(ca_file):
+                ctx.load_verify_locations(cafile=ca_file)
+                break
+    return ctx
+
+
 def slack_call(token: str, method: str, payload: Optional[dict] = None) -> dict:
     """POST to a Slack Web API method and return the JSON response.
 
@@ -175,7 +194,7 @@ def slack_call(token: str, method: str, payload: Optional[dict] = None) -> dict:
             },
         )
         try:
-            with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT) as resp:
+            with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT, context=ssl_context()) as resp:
                 return json.load(resp)
         except urllib.error.HTTPError as e:
             if e.code == 429:
